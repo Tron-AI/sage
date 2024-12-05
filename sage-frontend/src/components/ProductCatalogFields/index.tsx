@@ -1,29 +1,39 @@
 import React, { useState } from 'react'
 import { X, Plus } from 'lucide-react'
 import FieldDefinePopup from '@components/FieldDefinePopup'
+import type { Field } from '@/types/field';
 
-const ProductCatalogFields = ({ fields, setFields, onClose }) => {
+
+// Define the component props interface
+interface ProductCatalogFieldsProps {
+  fields: Field[]
+  setFields: React.Dispatch<React.SetStateAction<Field[]>>
+  onClose: () => void
+}
+
+const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, setFields, onClose }) => {
   const [showDefinePopup, setShowDefinePopup] = useState(false)
-  const [currentField, setCurrentField] = useState(null)
+  const [currentField, setCurrentField] = useState<Field | null>(null)
 
-  const handleDefine = field => {
+  const handleDefine = (field: Field) => {
     setCurrentField(field)
     setShowDefinePopup(true)
   }
 
-  const handleSave = updatedField => {
+  const handleSave = (updatedField: Field) => {
     setFields(fields.map(f => (f.id === updatedField.id ? updatedField : f)))
     setShowDefinePopup(false)
   }
 
   const handleAddField = () => {
-    const newField = {
+    const newField: Field = {
       id: fields.length + 1,
       name: 'New Field',
       type: 'VARCHAR',
       length: 50,
-      null: false,
-      primaryKey: false
+      isRequired: false,
+      isPrimaryKey: false,
+      
     }
     setFields([...fields, newField])
     handleDefine(newField)
@@ -94,7 +104,7 @@ const ProductCatalogFields = ({ fields, setFields, onClose }) => {
         </button>
       </div>
 
-      {showDefinePopup && (
+      {showDefinePopup && currentField && (
         <FieldDefinePopup field={currentField} onClose={() => setShowDefinePopup(false)} onSave={handleSave} />
       )}
     </div>

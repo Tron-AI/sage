@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import DatePicker from 'react-datepicker'
 import { Upload, X, FileSpreadsheet, Building2, Database, Clock, Settings } from 'lucide-react'
+import type { Field } from '@/types/field';
 import 'react-datepicker/dist/react-datepicker.css'
 import CreatableSelect from 'react-select/creatable'
 import axios from 'axios'
+import { AxiosError } from 'axios'
 import Select from 'react-select'
+import type { StylesConfig } from 'react-select'
+import type { MultiValue } from 'react-select'
+import type { CSSObjectWithLabel } from 'react-select'
 import { toast, ToastContainer } from 'react-toastify'
 import { useRouter } from 'next/navigation'
 
@@ -18,23 +23,67 @@ const predefinedTags = [
   { value: 'financial', label: 'Financial' }
 ]
 
-const AddNewCatalog = ({ fields, onDefineFields }) => {
+
+type AddNewCatalogProps = {
+  fields: Field[]
+  onDefineFields: (shouldUpdate: boolean) => void
+}
+
+type User = {
+  id: string
+  username: string
+  email: string
+  [key: string]: any
+}
+
+type Errors = {
+  [key: string]: string
+}
+
+type Option = {
+  label: string
+  value: string | number
+}
+
+type FormData = {
+  catalogName: string
+  tags: string
+  corporate: string
+  responsibleUser: string | number
+  menu: string
+  product: string
+  domain: string
+  description: string
+  mandatory: string
+  frequency: string
+  apiKey: string
+  submissionEmail: string
+  authorizedEmails: string
+  sftpFolder: string
+}
+
+interface Tag {
+  label: string
+  value: string
+}
+
+const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields }) => {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState([])
-  const [users, setUsers] = useState([])
+  const [errors, setErrors] = useState<string[]>([])
+  const [users, setUsers] = useState<{ value: string; label: string; user: User }[]>([])
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
-  const [userError, setUserError] = useState(null)
-  const [selectedUser, setSelectedUser] = useState(null)
+  const [userError, setUserError] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<Option | null>(null)
 
-  const [iconPreview, setIconPreview] = useState(null)
-  const [deadline, setDeadline] = useState(null)
-  const [selectedTags, setSelectedTags] = useState([])
-  const [formData, setFormData] = useState({
+  const [iconPreview, setIconPreview] = useState<string | null>(null)
+  const [deadline, setDeadline] = useState<Date | null>(null)
+  const [selectedTags, setSelectedTags] = useState<MultiValue<Tag>>([])
+  const [formData, setFormData] = useState<FormData>({
     catalogName: '',
     tags: '',
     corporate: '',
-    responsibleUser: '',
+    responsibleUser: '', // Can be string or number
     menu: '',
     product: '',
     domain: '',
@@ -46,19 +95,19 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
     authorizedEmails: '',
     sftpFolder: ''
   })
-
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const token = localStorage.getItem('accessToken')
 
   useEffect(() => {
     const getUsers = async () => {
       setIsLoadingUsers(true)
       setUserError(null)
       try {
-        const fetchedUsers = await fetchUsers()
-        debugger
-        const userOptions = fetchedUsers.map(user => ({
+        const fetchedUsers = await fetchUsers(API_URL, token)
+        const userOptions = fetchedUsers.map((user: User) => ({
           value: user.id,
           label: `${user.username} (${user.email})`,
-          user: user // Store full user object if needed
+          user // Store full user object
         }))
         setUsers(userOptions)
       } catch (error) {
@@ -70,20 +119,27 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
     }
 
     getUsers()
-  }, [])
-  
+  }, [API_URL, token])
 
-  const handleInputChange = e => {
+
+  if (!token) {
+    // Redirect to login page if access token is not found
+    router.push('/login')
+
+    return
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleIconChange = e => {
-    const file = e.target.files[0]
+  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files ? e.target.files[0] : null
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        setIconPreview(reader.result)
+        setIconPreview(reader.result as string)
       }
       reader.readAsDataURL(file)
     } else {
@@ -94,13 +150,6 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
   const removeIcon = () => {
     setIconPreview(null)
   }
-  const token = localStorage.getItem('accessToken')
-  if (!token) {
-    // Redirect to login page if access token is not found
-    router.push('/login')
-
-    return
-  }
 
   // const handleDefineFields = () => {
   //   onDefineFields({
@@ -110,8 +159,8 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
   //   })
   // }
 
-  const handleTagChange = newValue => {
-    setSelectedTags(newValue)
+  const handleTagChange = (newValue: MultiValue<Tag>) => {
+    setSelectedTags(newValue as Tag[])
     setFormData(prev => ({
       ...prev,
       tags: newValue.map(tag => tag.value).join(',')
@@ -121,36 +170,33 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
   const inputClasses =
     'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors duration-200'
 
-  const customStyles = {
-    control: (base, state) => ({
-      ...base,
-      minHeight: '42px',
-      borderColor: state.isFocused ? '#60A5FA' : '#D1D5DB',
-      boxShadow: state.isFocused ? '0 0 0 2px rgba(96, 165, 250, 0.2)' : 'none',
-      '&:hover': {
-        borderColor: '#60A5FA'
-      }
-    }),
-    multiValue: base => ({
-      ...base,
-      backgroundColor: '#EFF6FF',
-      borderRadius: '6px',
-      padding: '2px'
-    }),
-    multiValueLabel: base => ({
-      ...base,
-      color: '#2563EB',
-      fontSize: '0.875rem'
-    }),
-    multiValueRemove: base => ({
-      ...base,
-      color: '#2563EB',
-      ':hover': {
-        backgroundColor: '#DBEAFE',
-        color: '#1E40AF'
-      }
-    })
-  }
+    const customStyles: StylesConfig<Tag, true> = {
+      control: (base: CSSObjectWithLabel, state: any): CSSObjectWithLabel => ({
+        ...base,
+        minHeight: '42px',
+        borderColor: state.isFocused ? '#60A5FA' : '#D1D5DB',
+        boxShadow: state.isFocused ? '0 0 0 2px rgba(96, 165, 250, 0.2)' : 'none',
+        '&:hover': {
+          borderColor: '#60A5FA'
+        }
+      }),
+      multiValue: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
+        ...base,
+        backgroundColor: '#EFF6FF',
+        borderRadius: '6px',
+        padding: '2px'
+      }),
+      multiValueLabel: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
+        ...base,
+        color: '#2563EB',
+        fontSize: '0.875rem'
+      }),
+      multiValueRemove: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
+        ...base,
+        color: '#2563EB',
+        cursor: 'pointer',
+      })
+    }
 
   // Reset form
   const resetForm = () => {
@@ -201,7 +247,7 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
     }
   }
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const errorsInForm = validateForm()
 
@@ -234,15 +280,14 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
         submission_email: formData.submissionEmail,
         authorized_emails_list: formData.authorizedEmails.split('\n').map(email => email.trim()), // Array of emails
         tags: formData.tags.split(',').map(tag => tag.trim()), // Array of tags
-        deadline: deadline ? deadline.toISOString().split('T')[0] : '', // Format deadline
-        sftp_folder: formData.sftpFolder
+        deadline:
+          deadline && deadline instanceof Date && !isNaN(deadline.getTime())
+            ? deadline.toISOString().split('T')[0]
+            : '',
+        sftp_folder: formData.sftpFolder,
+        ...(iconPreview && { icon: iconPreview })
       }
 
-      // Handle icon file if present, convert to base64 or provide a URL
-      if (iconPreview) {
-        // If iconPreview is base64 image data, include it in the request
-        catalogData.icon = iconPreview
-      }
       console.log(catalogData)
 
       // Send POST request with JSON payload
@@ -264,11 +309,17 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
           progress: undefined
         })
       }
-    } catch (err) {
-      setErrors(prevErrors => [
-        ...prevErrors,
-        err.response?.data?.message || 'Failed to create catalog. Please try again.'
-      ])
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        // Safely access the response data here
+        setErrors(prevErrors => [
+          ...prevErrors,
+          err.response?.data?.message || 'Failed to create catalog. Please try again.'
+        ])
+      } else {
+        // Handle unexpected error types here
+        setErrors(prevErrors => [...prevErrors, 'An unexpected error occurred. Please try again.'])
+      }
     } finally {
       setIsLoading(false)
     }
@@ -299,7 +350,7 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
     }
   }
 
-  const handleFieldsSubmit = async productId => {
+  const handleFieldsSubmit = async (productId: string) => {
     const url = `http://127.0.0.1:8000/api/product/${productId}/field/`
 
     try {
@@ -358,7 +409,7 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
     }
   }
 
-  const handleValidationRuleSubmit = async (productId, field) => {
+  const handleValidationRuleSubmit = async (productId: string, field: Field) => {
     const url = `http://127.0.0.1:8000/api/product/${productId}/field/${field.id}/validation-rule/`
 
     try {
@@ -398,7 +449,7 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
   }
 
   const validateForm = () => {
-    const errors = {}
+    const errors: Errors = {}
 
     if (!formData.catalogName.trim()) {
       errors.catalogName = 'Catalog name is required'
@@ -440,36 +491,34 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
     return errors
   }
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
-  const fetchUsers = async () => {
+  const fetchUsers = async (API_URL: string, token: string | null): Promise<User[]> => {
     try {
-      const response = await axios.get(`${API_URL}/api/auth/users/`, {
+      const response = await axios.get<{ users: User[] }>(`${API_URL}/api/auth/users/`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       })
 
-      return response.data.users
+      return response.data.users // Return the users array
     } catch (error) {
       console.error('Error fetching users:', error)
-      setErrors(prevErrors => [...prevErrors, 'Error fetching users:' + error])
-      throw error
+      throw new Error('Failed to fetch users') // Throw error for consistent error handling
     }
   }
 
+  const handleUserChange = (newValue: unknown) => {
+    const selectedOption = newValue as Option;  // Type-cast newValue to Option
+    setSelectedUser(selectedOption);
   
-
-  const handleUserChange = selectedOption => {
-    setSelectedUser(selectedOption)
+    // Update form data
     setFormData(prev => ({
       ...prev,
       responsibleUser: selectedOption ? selectedOption.value : ''
-    }))
+    }));
   }
 
-  const userSelectStyles = {
+  const userSelectStyles: StylesConfig = {
     control: (base, state) => ({
       ...base,
       minHeight: '42px',
@@ -672,7 +721,7 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
                   name='description'
                   value={formData.description}
                   onChange={handleInputChange}
-                  rows='3'
+                  rows={3}
                   className={inputClasses}
                 ></textarea>
               </div>
@@ -759,7 +808,7 @@ const AddNewCatalog = ({ fields, onDefineFields }) => {
                   name='authorizedEmails'
                   value={formData.authorizedEmails}
                   onChange={handleInputChange}
-                  rows='3'
+                  rows={3}
                   className={inputClasses}
                   required
                 ></textarea>

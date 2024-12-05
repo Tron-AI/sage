@@ -62,8 +62,9 @@
     "stylis-plugin-rtl": "2.1.1",
     "tailwindcss": "3.4.6",
     "tailwindcss-logical": "3.0.1",
+    "ts-node": "^10.9.2",
     "tsx": "4.16.2",
-    "typescript": "5.5.4"
+    "typescript": "^5.5.4"
   },
   "resolutions": {
     "rimraf": "^5.0.7"

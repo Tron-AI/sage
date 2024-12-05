@@ -1,22 +1,31 @@
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
+import type { Field } from '@/types/field';
 
-const FieldDefinePopup = ({ field, onClose, onSave }) => {
-  const [fieldData, setFieldData] = useState(field)
+
+interface FieldDefinePopupProps {
+  field: Field
+  onClose: () => void
+  onSave: (fieldData: Field) => void
+}
+
+const FieldDefinePopup: React.FC<FieldDefinePopupProps> = ({ field, onClose, onSave }) => {
+  const [fieldData, setFieldData] = useState<Field>(field)
 
   useEffect(() => {
     setFieldData(field)
   }, [field])
 
-  const handleChange = e => {
-    const { name, value, type, checked } = e.target
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     setFieldData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: newValue
     }))
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSave(fieldData)
     onClose()
@@ -131,7 +140,7 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
                   <input
                     type='number'
                     name='minValue'
-                    value={fieldData.minValue}
+                    value={fieldData.minValue ?? ''}
                     onChange={handleChange}
                     className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                   />
@@ -141,7 +150,7 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
                   <input
                     type='number'
                     name='maxValue'
-                    value={fieldData.maxValue}
+                    value={fieldData.maxValue ?? ''}
                     onChange={handleChange}
                     className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                   />
@@ -155,7 +164,7 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
               <input
                 type='number'
                 name='decimalPlaces'
-                value={fieldData.decimalPlaces}
+                value={fieldData.decimalPlaces ?? ''}
                 onChange={handleChange}
                 className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
               />
@@ -168,7 +177,7 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
                 <label className='block text-sm font-medium text-gray-700'>Date Validation</label>
                 <select
                   name='dateValidation'
-                  value={fieldData.dateValidation}
+                  value={fieldData.dateValidation ?? ''}
                   onChange={handleChange}
                   className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                 >
@@ -183,7 +192,7 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
                 <input
                   type='text'
                   name='dateFormat'
-                  value={fieldData.dateFormat}
+                  value={fieldData.dateFormat ?? ''}
                   onChange={handleChange}
                   className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                 />
@@ -191,11 +200,11 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
             </div>
           )}
           <div>
-            <label className='block text-sm font-medium text-gray-700'>Allowed Values (comma-separated)</label>
+            <label className='block text-sm font-medium text-gray-700'>Picklist Values</label>
             <input
               type='text'
-              name='allowedValues'
-              value={fieldData.picklist_values}
+              name='picklist_values'
+              value={fieldData.picklist_values ?? ''}
               onChange={handleChange}
               className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
             />
@@ -210,12 +219,19 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
               className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
             />
           </div>
-          <div className='flex justify-end'>
+          <div className='mt-4 flex justify-end space-x-4'>
+            <button
+              type='button'
+              onClick={onClose}
+              className='px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300'
+            >
+              Cancel
+            </button>
             <button
               type='submit'
-              className='bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700'
             >
-              Save Changes
+              Save
             </button>
           </div>
         </form>

@@ -5,12 +5,15 @@ import AddNewCatalog from '@components/AddNewCatalog'
 import ProductCatalogFields from '@components/ProductCatalogFields'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
+import type { Field } from '@/types/field';
+
+
 
 const CatalogManagement = () => {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showFieldsPopup, setShowFieldsPopup] = useState(false)
-  const [fields, setFields] = useState([])
+  const [fields, setFields] = useState<Field[]>([])
 
   const handleDefineFields = () => {
     setShowFieldsPopup(true)
@@ -19,10 +22,10 @@ const CatalogManagement = () => {
   const handleCloseFieldsPopup = () => {
     setShowFieldsPopup(false)
   }
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
-      // Redirect to login page if access token is not found
       router.push('/login')
 
       return
@@ -30,7 +33,6 @@ const CatalogManagement = () => {
 
     const userDetails = async () => {
       try {
-        // Fetch user details from the API
         const response = await axios.get('http://127.0.0.1:8000/api/auth/user/details/', {
           headers: {
             Authorization: `Bearer ${token}`
@@ -52,7 +54,7 @@ const CatalogManagement = () => {
   }, [router])
 
   if (!isAuthenticated) {
-    return <div>Loading...</div> // Or null to not render anything
+    return <div>Loading...</div> 
   }
 
   return (

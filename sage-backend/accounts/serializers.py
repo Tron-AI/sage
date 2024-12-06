@@ -4,6 +4,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -33,18 +35,34 @@ class RegisterSerializer(serializers.ModelSerializer):
 # Login Serializer with JWT Token
 class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        # Use the parent class method to validate user credentials and generate tokens
-        data = super().validate(attrs)
-        
-        # Adding additional user information to the response
-        data['user'] = {
-            "username": self.user.username,
-            "email": self.user.email,
-            "is_staff": self.user.is_staff,
-        }
+        username_or_email = attrs.get("username")
+        password = attrs.get("password")
 
-        # Update last login time
-        update_last_login(None, self.user)
+        if not username_or_email or not password:
+            raise ValidationError({"detail": "Username/Email and password are required."})
+
+        # Check if the input is an email or username
+        user = None
+        if "@" in username_or_email:  # Looks like an email
+            try:
+                user = User.objects.get(email=username_or_email)
+                username_or_email = user.username  # Map email to username
+            except User.DoesNotExist:
+                raise ValidationError({"detail": "No user found with this email."})
+        
+        # Authenticate user
+        user = authenticate(username=username_or_email, password=password)
+        if not user:
+            raise ValidationError({"detail": "Invalid credentials."})
+
+        # Generate tokens
+        data = super().validate({"username": username_or_email, "password": password})
+
+        # Include additional user info
+        data["user"] = {
+            "username": user.username,
+            "is_staff": user.is_staff,
+        }
 
         return data
 

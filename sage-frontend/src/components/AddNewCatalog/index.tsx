@@ -422,7 +422,7 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
         max_value: field.maxValue || null,
         is_email_format: field.emailFormat || false,
         is_phone_format: field.phoneFormat || false,
-        has_max_decimal: field.decimalPlaces || false,
+        has_max_decimal: !!field.decimalPlaces,
         max_decimal_places: field.decimalPlaces || null,
         has_date_format: field.hasDateFormat || false,
         date_format: field.dateFormat || '',

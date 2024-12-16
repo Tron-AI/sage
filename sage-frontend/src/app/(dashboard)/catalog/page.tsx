@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Database } from 'lucide-react'
+import { Plus, Database, Trash2, Edit2, Eye } from 'lucide-react'
 import axios from 'axios'
 
 const CatalogsPage = () => {
@@ -19,6 +19,12 @@ const CatalogsPage = () => {
   const [itemsPerPage] = useState<number>(10)
   const [totalPages, setTotalPages] = useState<number>(1)
   const [isStaff, setIsStaff] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [selectedCatalog, setSelectedCatalog] = useState<string | null>(null)
+
+  const handleCatalogClick = (id: string) => {
+    router.push(`/submissions/${id}`)
+  }
 
   // Fetch catalogs data from API
   useEffect(() => {
@@ -107,6 +113,37 @@ const CatalogsPage = () => {
         return 'text-slate-600'
     }
   }
+
+  const handleDelete = (id: string) => {
+    setSelectedCatalog(id)
+    setIsDeleting(true)
+  }
+
+  const deleteCatalog = async () => {
+    if (!selectedCatalog) return
+
+    try {
+      // Call the API to delete the catalog
+      await axios.delete(`http://localhost:8000/api/catalogs/${selectedCatalog}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      })
+      setSelectedCatalog(null)
+      setIsDeleting(false)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleEdit = (id: string) => {
+    console.log('Deleting catalog:', id)
+  }
+
+  const handleView = (id: string) => {
+    console.log('Deleting catalog:', id)
+  }
+
   if (!isAuthenticated) {
     return <div>Loading...</div> // Or null to not render anything
   }
@@ -144,7 +181,7 @@ const CatalogsPage = () => {
             <table className='min-w-full divide-y divide-blue-200'>
               <thead>
                 <tr className='bg-blue-500'>
-                  {['Name', 'Company', 'Product', 'Domain', 'Status'].map(header => (
+                  {['Name', 'Company', 'Product', 'Domain', 'Status', 'Actions'].map(header => (
                     <th key={header} className='px-6 py-4 text-left text-sm font-semibold text-white tracking-wider'>
                       {header}
                     </th>
@@ -153,7 +190,11 @@ const CatalogsPage = () => {
               </thead>
               <tbody className='divide-y divide-blue-100'>
                 {currentCatalogs.map((catalog, index) => (
-                  <tr key={index} className='hover:bg-blue-50 transition-colors duration-150'>
+                  <tr
+                    key={index}
+                    className='hover:bg-blue-50 transition-colors duration-150'
+                    onClick={() => handleCatalogClick(catalog.id)}
+                  >
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <span className='text-sm font-semibold text-blue-700'>{catalog.name}</span>
                     </td>
@@ -177,6 +218,33 @@ const CatalogsPage = () => {
                       >
                         {catalog.status || 'Pending'}
                       </span>
+                    </td>
+                    <td className='px-6 py-4 whitespace-nowrap'>
+                      <div className='flex justify-center items-center space-x-4'>
+                        <button
+                          onClick={() => handleView(catalog.id)}
+                          className='text-green-500 hover:text-green-700 p-2 rounded-full hover:bg-green-50 transition-colors'
+                        >
+                          <Eye size={18} />
+                        </button>
+
+                        <button
+                          onClick={() => handleEdit(catalog.id)}
+                          className='text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-50 transition-colors'
+                        >
+                          <Edit2 size={18} />
+                        </button>
+
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleDelete(catalog.id)
+                          }}
+                          className='text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors'
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -220,6 +288,22 @@ const CatalogsPage = () => {
           </div>
         </div>
       </div>
+      {/* Confirmation Dialog */}
+      {isDeleting && selectedCatalog && (
+        <div className='fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50'>
+          <div className='bg-white p-6 rounded-lg shadow-lg text-center'>
+            <h2 className='text-lg font-semibold text-gray-800 mb-4'>Are you sure you want to delete it?</h2>
+            <div className='flex justify-center space-x-4'>
+              <button onClick={deleteCatalog} className='px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600'>
+                Yes, Delete
+              </button>
+              <button onClick={() => setIsDeleting(false)} className='px-4 py-2 bg-gray-200 rounded hover:bg-gray-300'>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

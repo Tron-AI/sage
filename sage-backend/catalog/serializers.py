@@ -209,9 +209,23 @@ class CatalogListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 class UploadedFileSerializer(serializers.ModelSerializer):
+    # Adding the catalog name as a serializer method field
+    catalog_name = serializers.SerializerMethodField()
+    
+    # Adding the username as a serializer method field
+    username = serializers.SerializerMethodField()
+    
     class Meta:
         model = UploadedFile
-        fields = ['id', 'catalog', 'file', 'domain', 'user', 'uploaded_at']
+        fields = ['id', 'catalog', 'catalog_name', 'file', 'domain', 'username', 'uploaded_at']
+    
+    def get_catalog_name(self, obj):
+        # Fetch and return the name of the related catalog
+        return obj.catalog.name if obj.catalog else None
+    
+    def get_username(self, obj):
+        # Fetch and return the username of the related user
+        return obj.user.username if obj.user else None
 
 class ValidationRuleSerializer(serializers.ModelSerializer):
     """Serializer for ValidationRule model."""

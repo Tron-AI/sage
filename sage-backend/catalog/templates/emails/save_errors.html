@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Data Save Errors for {{ product_name }}</h2>
+    
+    <p>Dear {{ username }},</p>
+    
+    <p>We encountered an issue while trying to save your Excel data for the product "{{ product_name }}".</p>
+    
+    <h3>Error Details:</h3>
+    <pre>{{ save_errors }}</pre>
+    
+    <p>Please review the error and try uploading your file again. If the issue persists, contact support.</p>
+    
+    <p>Best regards,<br>Sage Team</p>
+</body>
+</html>

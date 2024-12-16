@@ -2,6 +2,8 @@
 
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+
 User = get_user_model()
 
 
@@ -38,6 +40,7 @@ class Catalog(models.Model):
         ('Active', 'Active'),
         ('Delayed', 'Delayed'),
         ('Pending', 'Pending'),
+        ('Rejected', 'Rejected'),
     )
 
     # Catalog Information
@@ -83,12 +86,6 @@ class Catalog(models.Model):
         """Convert emails list to text for storage"""
         self.authorized_emails = '\n'.join(emails_list)
 
-class UploadedFile(models.Model):
-    catalog = models.ForeignKey(Catalog, related_name='uploaded_files', on_delete=models.CASCADE)
-    file = models.FileField(upload_to='uploaded_files/')
-    domain = models.CharField(max_length=255, null=True)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
 
 class ProductField(models.Model):
     """Model for defining fields within a Product"""
@@ -147,6 +144,66 @@ class ValidationRule(models.Model):
 
     class Meta:
         ordering = ['product_field']
+
+
+
+class UploadedFile(models.Model):
+    catalog = models.ForeignKey(Catalog, related_name='uploaded_files', on_delete=models.CASCADE)
+    file = models.FileField(upload_to='uploaded_files/')
+    domain = models.CharField(max_length=255, null=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
+class SubmissionInfo(models.Model):
+    """
+    Model to store information about data submissions.
+    """
+    catalog = models.ForeignKey(Catalog, related_name='submission_info', on_delete=models.CASCADE, null=True)
+    domain = models.CharField(max_length=255, null=True)
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="submissions")
+    submitted_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="submissions")
+    submission_time = models.DateTimeField(default=timezone.now)
+    submitted_data = models.JSONField()
+
+    class Meta:
+        ordering = ['-submission_time']
+
+    def __str__(self):
+        return f"Submission for {self.product.name} by {self.submitted_by.username} at {self.submission_time}"
+    
+
+class Alert(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='alerts')
+    message = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Alert for {self.user.username}: {self.message}"
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+
+class ProductTableInfo(models.Model):
+    """Model to store table info related to a product"""
+    product = models.OneToOneField(
+        Product, 
+        on_delete=models.CASCADE, 
+        related_name='product_table_info'
+    )  # Enforces one-to-one relationship
+    table_name = models.CharField(max_length=255)
+    fields = models.JSONField(default=list, blank=True)  # List of fields in the table
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Table {self.table_name} for Product {self.product.schema_name}"
+
+    class Meta:
+        ordering = ['-created_at']
+
 # from django.db import models
 
 #

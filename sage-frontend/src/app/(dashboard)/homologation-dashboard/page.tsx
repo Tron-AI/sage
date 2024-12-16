@@ -1,4 +1,5 @@
 'use client'
+
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
@@ -45,44 +46,105 @@ const PendingAlert: React.FC<PendingAlertProps> = ({ distributor, message, statu
   </div>
 )
 
+// Type definitions for data structure
+interface Corporate {
+  corporate: string
+  status_summary: {
+    Homologated?: number
+    Pending?: number
+    Rejected?: number
+  }
+}
+
+interface PieData {
+  name: string
+  value: number
+}
+
+interface BarData {
+  name: string
+  Homologated: number
+  Pending: number
+  Rejected: number
+}
+
 const HomologationDashboard = () => {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const pieData = [
-    { name: 'Homologated', value: 320 },
-    { name: 'Pending', value: 100 },
-    { name: 'Rejected', value: 30 }
-  ]
-
-  const barData = [
-    { name: 'Distributor A', Homologated: 120, Pending: 50, Rejected: 10 },
-    { name: 'Distributor B', Homologated: 80, Pending: 20, Rejected: 20 },
-    { name: 'Distributor C', Homologated: 120, Pending: 30, Rejected: 0 }
-  ]
+  const [pieData, setPieData] = useState<PieData[]>([])
+  const [barData, setBarData] = useState<BarData[]>([])
 
   const COLORS = ['#4CAF50', '#FFC107', '#F44336']
+
+  const [statusCounts, setStatusCounts] = useState({
+    Active: 0,
+    Pending: 0,
+    Delayed: 0,
+    Rejected: 0,
+  })
+  const [totalCatalogs, setTotalCatalogs] = useState(0)
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      router.push('/login')
+
+      return
+    }
+    const fetchStatusCounts = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/catalog-status-count/', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (!response.ok) {
+          throw new Error('Failed to fetch data')
+        }
+        const data = await response.json()
+
+        setStatusCounts(data.status_counts)
+        setTotalCatalogs(data.total_catalogs)
+
+        const pieDataArray = Object.entries(data.status_percentages).map(([name, value]) => ({
+          name,
+          value: value as number,
+        }))
+        setPieData(pieDataArray)
+
+        const transformedData = data.top_corporates.map((corporate: Corporate) => ({
+          name: corporate.corporate,
+          Homologated: corporate.status_summary.Homologated || 0,
+          Pending: corporate.status_summary.Pending || 0,
+          Rejected: corporate.status_summary.Rejected || 0,
+        }))
+
+        setBarData(transformedData)
+      } catch (error) {
+        console.error('Error fetching status counts:', error)
+      }
+    }
+
+    fetchStatusCounts()
+  }, [])
 
   useEffect(() => {
     const checkAccessTokenAndFetchCatalogs = async () => {
       const token = localStorage.getItem('accessToken')
       if (!token) {
-        // Redirect to login page if access token is not found
         router.push('/login')
 
         return
       }
-
-      // If token exists, set authenticated state to true
       setIsAuthenticated(true)
     }
 
     checkAccessTokenAndFetchCatalogs()
-  }, [router]) // Include router as a dependency
+  }, [router])
 
-  // Return a loading state or nothing until the authentication check is done
   if (!isAuthenticated) {
-    return null // Or null to not render anything
+    return null
   }
 
   return (
@@ -93,13 +155,28 @@ const HomologationDashboard = () => {
       <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-6'>
         <DashboardCard
           title='Total Products'
-          value='450'
+          value={totalCatalogs}
           subtitle='Products received from distributors'
           color='bg-gray-100'
         />
-        <DashboardCard title='Homologated' value='320' subtitle='Successful homologations' color='bg-green-100' />
-        <DashboardCard title='Pending' value='100' subtitle='Awaiting homologation' color='bg-yellow-100' />
-        <DashboardCard title='Rejected' value='30' subtitle='Products with issues' color='bg-red-100' />
+        <DashboardCard
+          title='Homologated'
+          value={statusCounts.Active}
+          subtitle='Successful homologations'
+          color='bg-green-100'
+        />
+        <DashboardCard
+          title='Pending'
+          value={statusCounts.Pending}
+          subtitle='Awaiting homologation'
+          color='bg-yellow-100'
+        />
+        <DashboardCard
+          title='Rejected'
+          value={statusCounts.Rejected}
+          subtitle='Products with issues'
+          color='bg-red-100'
+        />
       </div>
 
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-6'>

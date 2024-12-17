@@ -104,7 +104,7 @@ DATABASES = {
         'NAME': 'sage',
         'USER': 'postgres',
         'PASSWORD': 'abc123',
-        'HOST': 'localhost',
+        'HOST': 'db',
         'PORT': '5432',
     }
 }

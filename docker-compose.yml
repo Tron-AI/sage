@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:13
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: abc123
+      POSTGRES_DB: sage
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+
+  backend:
+    build:
+      context: ./sage-backend
+      dockerfile: Dockerfile.backend
+    container_name: django_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://postgres:abc123@db:5432/sage
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./sage-backend:/app/backend
+
+  frontend:
+    build:
+      context: ./sage-frontend
+      dockerfile: Dockerfile.frontend
+    container_name: nextjs_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./sage-frontend:/app/frontend
+
+volumes:
+  postgres_data:

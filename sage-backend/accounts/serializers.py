@@ -13,10 +13,11 @@ User = get_user_model()
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
+    is_staff = serializers.BooleanField(required=False) 
 
     class Meta:
         model = User
-        fields = ('username', 'password', 'password2', 'email')
+        fields = ('username', 'password', 'password2', 'email', 'is_staff')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -24,9 +25,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        validated_data.pop('password2')
+        is_staff = validated_data.pop('is_staff', False)
         user = User.objects.create(
             username=validated_data['username'],
-            email=validated_data['email']
+            email=validated_data['email'],
+            is_staff=is_staff
         )
         user.set_password(validated_data['password'])
         user.save()
@@ -37,6 +41,8 @@ class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         username_or_email = attrs.get("username")
         password = attrs.get("password")
+        print(username_or_email) 
+        print(password)
 
         if not username_or_email or not password:
             raise ValidationError({"detail": "Username/Email and password are required."})
@@ -54,6 +60,8 @@ class LoginSerializer(TokenObtainPairSerializer):
         user = authenticate(username=username_or_email, password=password)
         if not user:
             raise ValidationError({"detail": "Invalid credentials."})
+        
+        self.user = user
 
         # Generate tokens
         data = super().validate({"username": username_or_email, "password": password})

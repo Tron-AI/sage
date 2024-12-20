@@ -33,13 +33,6 @@ export default function DynamicDataEntryPage() {
   const [formData, setFormData] = useState<{ [key: string]: string }>({})
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
-  // Fetch table metadata when component mounts
-  useEffect(() => {
-    if (productId) {
-      fetchTableMetadata()
-    }
-  }, [productId])
-
   const fetchTableMetadata = async () => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
@@ -53,9 +46,11 @@ export default function DynamicDataEntryPage() {
           Authorization: `Bearer ${token}`
         }
       })
+      console.log(response)
       const tableData = response.data
       const tableName = Object.keys(tableData)[0]
       setTableMetadata(tableData[tableName])
+      console.log(tableMetadata)
 
       // Initialize form data based on fields
       const initialFormData: { [key: string]: string } = {}
@@ -63,11 +58,26 @@ export default function DynamicDataEntryPage() {
         initialFormData[field] = ''
       })
       setFormData(initialFormData)
+      console.log(formData)
     } catch (error) {
       console.error('Error fetching table metadata:', error)
       toast.error('Error fetching table metadata')
     }
   }
+
+  // Fetch table metadata when component mounts
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      // Redirect to login page if access token is not found
+      router.push('/login')
+
+      return
+    }
+    if (productId) {
+      fetchTableMetadata()
+    }
+  }, [productId])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -189,6 +199,22 @@ export default function DynamicDataEntryPage() {
         }
       })
       toast.success('Data saved successfully!')
+      const response = await axios.get(
+        `http://localhost:8000/api/product/${productId}/catalog/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const catalogId = response.data.catalog_id;
+
+      if (catalogId) {
+        setTimeout(() => {
+          router.push(`/submissions/${catalogId}`);
+        }, 3000);
+      }
     } catch (error) {
       console.error('Error saving data:', error)
       toast.error('Error saving data, please see email for further details')

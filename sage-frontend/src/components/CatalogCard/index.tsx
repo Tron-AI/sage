@@ -30,18 +30,39 @@ const CatalogCard: React.FC<CatalogCardProps> = React.memo(({ catalog, onDrop, f
       '.xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel' as any
   })
 
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return 'No description available.'
+
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Invalid date.'
+
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }
+
+    return date.toLocaleString('en-US', options)
+  }
 
   return (
     <div
-  {...getRootProps()}
-  className={`bg-white border rounded-3xl shadow-md overflow-hidden transition flex flex-col p-6 ${
-    isDragging ? 'border-4 border-dotted border-red-500' : 'border'
-  } max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg`}
->
+      {...getRootProps()}
+      className={`bg-white border rounded-3xl shadow-md overflow-hidden transition flex flex-col p-6 ${
+        isDragging ? 'border-4 border-dotted border-red-500' : 'border'
+      } max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg`}
+    >
       <div className='flex flex-col items-center justify-center gap-4 w-full'>
         {/* Image Section */}
         <img
-          src={catalog.icon || '/images/avatars/excel_icon.png'}
+          src={
+            catalog.icon === 'Manual'
+              ? '/images/avatars/data_entry.png'
+              : '/images/avatars/excel_icon.png'
+          }
           alt={catalog.name || 'Catalog Image'}
           className='w-40 h-40 object-cover rounded-full'
         />
@@ -68,7 +89,7 @@ const CatalogCard: React.FC<CatalogCardProps> = React.memo(({ catalog, onDrop, f
           {/* Card Content */}
           <div className='text-left'>
             <h3 className='text-xl font-semibold text-blue-800 mb-2'>{catalog.name || 'Untitled'}</h3>
-            <p className='text-blue-700 mb-4'>{catalog.product?.schema_name || 'No description available.'}</p>
+            <p className='text-blue-700 mb-4'>{formatDate(catalog.product?.schema_name)}</p>
           </div>
         </div>
       </div>

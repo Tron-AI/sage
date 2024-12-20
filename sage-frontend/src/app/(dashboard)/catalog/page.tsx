@@ -137,11 +137,13 @@ const CatalogsPage = () => {
   }
 
   const handleEdit = (id: string) => {
-    console.log('Deleting catalog:', id)
+    console.log('Editing catalog:', id)
+    router.push(`/catalog/edit/${id}`)
   }
 
   const handleView = (id: string) => {
-    console.log('Deleting catalog:', id)
+    console.log('Viewing catalog:', id)
+    router.push(`/catalog/view/${id}`)
   }
 
   if (!isAuthenticated) {
@@ -222,14 +224,20 @@ const CatalogsPage = () => {
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <div className='flex justify-center items-center space-x-4'>
                         <button
-                          onClick={() => handleView(catalog.id)}
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleView(catalog.id)
+                          }}
                           className='text-green-500 hover:text-green-700 p-2 rounded-full hover:bg-green-50 transition-colors'
                         >
                           <Eye size={18} />
                         </button>
 
                         <button
-                          onClick={() => handleEdit(catalog.id)}
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleEdit(catalog.id)
+                          }}
                           className='text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-50 transition-colors'
                         >
                           <Edit2 size={18} />

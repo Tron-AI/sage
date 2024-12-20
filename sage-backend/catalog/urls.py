@@ -15,6 +15,8 @@ urlpatterns = [
          ValidationRuleCreateView.as_view(), name='validation-rule-create'),
     path('product/<int:product_id>/field/<int:field_id>/validation-rule/<int:validation_rule_id>/',
          ValidationRuleDetailView.as_view(), name='validation-rule-detail'),
+     path('product/<int:product_id>/fields/', ProductFieldValidationRuleDetailView.as_view(), name='product-fields-detail'),
+     path('product/<int:product_id>/catalog/', GetCatalogIdByProduct.as_view(), name='get_catalog_id_by_product'),
 
 
     # Catalog URLs

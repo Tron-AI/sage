@@ -7,6 +7,9 @@ from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
+from django.core.files.base import ContentFile
+import base64
+import os
 from django.db.models import F, Q
 from datetime import date
 import datetime
@@ -23,7 +26,7 @@ import xlsxwriter
 from django.utils import timezone
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Product, Catalog, ProductField, ValidationRule, UploadedFile, Alert, ProductTableInfo, SubmissionInfo
-from .serializers import ProductSerializer, CatalogSerializer, CatalogListSerializer, ProductFieldSerializer, ValidationRuleSerializer, UploadedFileSerializer
+from .serializers import ProductSerializer, CatalogSerializer, CatalogListSerializer, ProductFieldSerializer, ValidationRuleSerializer, UploadedFileSerializer, ProductFieldValidationRuleSerializer
 import logging
 from django.core.mail import send_mail
 from django.conf import settings
@@ -175,26 +178,199 @@ class CatalogListCreateView(generics.ListCreateAPIView):
 
 class CatalogDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    Retrieve, update or delete a catalog
+    Retrieve or update a catalog instance with constraint management.
     """
-    queryset = Catalog.objects.all()
-    serializer_class = CatalogSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+    serializer_class = CatalogSerializer
+    queryset = Catalog.objects.all()
+
+    def get_serializer_context(self):
+        """Add request method to serializer context"""
+        context = super().get_serializer_context()
+        context['request_method'] = self.request.method
+        return context
+
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to include image data for GET requests"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        # Add base64 encoded image data if icon exists
+        if instance.icon and hasattr(instance.icon, 'path'):
+            try:
+                with open(instance.icon.path, 'rb') as image_file:
+                    image_data = base64.b64encode(image_file.read()).decode('utf-8')
+                    # Get the file extension
+                    file_ext = os.path.splitext(instance.icon.path)[1].lower()
+                    # Determine MIME type
+                    mime_type = {
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.gif': 'image/gif',
+                        '.bmp': 'image/bmp'
+                    }.get(file_ext, 'application/octet-stream')
+                    
+                    data['icon_data'] = f"data:{mime_type};base64,{image_data}"
+            except (IOError, OSError) as e:
+                print(f"Error reading image file: {e}")
+                # Keep the original icon path if there's an error
+                pass
+
+        return Response(data)
+
+    def get_existing_constraints(self, table_name):
+        """
+        Get existing constraints for the table.
+        Returns a dictionary of constraint names and their definitions.
+        """
+        with connection.cursor() as cursor:
+            # Get check constraints
+            cursor.execute("""
+                SELECT con.conname, pg_get_constraintdef(con.oid)
+                FROM pg_constraint con
+                INNER JOIN pg_class rel ON rel.oid = con.conrelid
+                WHERE rel.relname = %s
+                AND con.contype IN ('c', 'u')
+            """, [table_name])
+            
+            constraints = {row[0]: row[1] for row in cursor.fetchall()}
+            return constraints
+
+    def drop_constraint(self, cursor, table_name, constraint_name):
+        """Safely drop a constraint if it exists."""
+        cursor.execute(f"""
+            ALTER TABLE {table_name} 
+            DROP CONSTRAINT IF EXISTS "{constraint_name}";
+        """)
+
+    def update_field_constraints(self, field, table_name, existing_constraints):
+        """
+        Update constraints for a single field.
+        """
+        with connection.cursor() as cursor:
+            field_name = f'"{field.name}"' if ' ' in field.name or any(c in field.name for c in [';', '"', "'"]) else field.name
+            
+            # Handle validation rules if they exist
+            if hasattr(field, 'validation_rule') and field.validation_rule:
+                validation = field.validation_rule
+                
+                # Unique constraint
+                unique_constraint_name = f'unique_{field.id}'
+                if validation.is_unique:
+                    if unique_constraint_name not in existing_constraints:
+                        cursor.execute(
+                            f'ALTER TABLE {table_name} ADD CONSTRAINT "{unique_constraint_name}" '
+                            f'UNIQUE ({field_name});'
+                        )
+                else:
+                    self.drop_constraint(cursor, table_name, unique_constraint_name)
+
+                # Min/Max constraints
+                min_constraint_name = f'check_{field.id}_min'
+                max_constraint_name = f'check_{field.id}_max'
+                
+                if validation.has_min_max:
+                    if validation.min_value is not None:
+                        self.drop_constraint(cursor, table_name, min_constraint_name)
+                        cursor.execute(
+                            f'ALTER TABLE {table_name} ADD CONSTRAINT "{min_constraint_name}" '
+                            f'CHECK ({field_name} >= {validation.min_value});'
+                        )
+                    if validation.max_value is not None:
+                        self.drop_constraint(cursor, table_name, max_constraint_name)
+                        cursor.execute(
+                            f'ALTER TABLE {table_name} ADD CONSTRAINT "{max_constraint_name}" '
+                            f'CHECK ({field_name} <= {validation.max_value});'
+                        )
+                else:
+                    self.drop_constraint(cursor, table_name, min_constraint_name)
+                    self.drop_constraint(cursor, table_name, max_constraint_name)
+
+                # Decimal places constraint
+                decimal_constraint_name = f'check_{field.id}_decimals'
+                if validation.has_max_decimal and field.field_type == 'decimal':
+                    self.drop_constraint(cursor, table_name, decimal_constraint_name)
+                    cursor.execute(
+                        f'ALTER TABLE {table_name} ADD CONSTRAINT "{decimal_constraint_name}" '
+                        f'CHECK (ROUND({field_name}, {validation.max_decimal_places}) = {field_name});'
+                    )
+                else:
+                    self.drop_constraint(cursor, table_name, decimal_constraint_name)
+
+                # Custom validation
+                custom_constraint_name = f'check_{field.id}_custom'
+                if validation.custom_validation:
+                    self.drop_constraint(cursor, table_name, custom_constraint_name)
+                    cursor.execute(validation.custom_validation)
+
+    def update_product_table(self, instance):
+        """
+        Update the product table schema and constraints if necessary.
+        """
+        product = instance.product
+        table_name = f"product_{product.id}"
+        
+        with connection.cursor() as cursor:
+            # Check if table exists
+            cursor.execute(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)",
+                [table_name]
+            )
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                # If table doesn't exist, create it
+                self.perform_create(instance)
+                return
+            
+            # Get current fields and existing constraints
+            current_fields = ProductField.objects.filter(product=product)
+            existing_constraints = self.get_existing_constraints(table_name)
+            
+            # Get existing columns
+            cursor.execute("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = %s
+            """, [table_name])
+            existing_columns = {row[0]: row[1] for row in cursor.fetchall()}
+            
+            # Update schema and constraints for each field
+            for field in current_fields:
+                column_name = field.name
+                sql_type = get_sql_field_type(field)
+                
+                # Add new columns if needed
+                if column_name not in existing_columns:
+                    escaped_column_name = f'"{column_name}"' if ' ' in column_name else column_name
+                    alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {escaped_column_name} {sql_type}"
+                    if not field.is_null:
+                        alter_sql += " NOT NULL"
+                    cursor.execute(alter_sql)
+                
+                # Update constraints for this field
+                self.update_field_constraints(field, table_name, existing_constraints)
 
     def perform_update(self, serializer):
-        # Handle file upload and additional logic if needed
-        serializer.save()
+        instance = serializer.save()
+        self.update_product_table(instance)
+        return instance
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-
         try:
-            serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)
-            return Response(serializer.data)
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
         except Exception as e:
             return Response(
                 {'error': str(e)},
@@ -521,6 +697,13 @@ class ValidationRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
             return validation_rule
         except ValidationRule.DoesNotExist:
             raise NotFound("Validation rule not found.")
+    
+    def update(self, request, *args, **kwargs):
+        # Log the incoming request data
+        print(request.data)
+
+        # Proceed with the default update logic
+        return super().update(request, *args, **kwargs)
         
 
 
@@ -689,7 +872,6 @@ class DynamicTableDataListView(APIView):
 
         if not product_table:
             return Response({'error': 'No dynamic table found for this product'}, status=status.HTTP_404_NOT_FOUND)
-        
 
         # Fetch all product fields for the product
         product_fields = ProductField.objects.filter(product=product)
@@ -721,13 +903,17 @@ class DynamicTableDataListView(APIView):
             }
             field_details[field.name] = field_info
 
-        # Fetch all rows from the dynamic table for the given product
+        # Fetch all rows from the dynamic table and update fields in the database
         data = {}
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT * FROM {product_table.table_name}")
             columns = [col[0] for col in cursor.description]
-            column_types = [col[1] for col in cursor.description]  # Extract column types
 
+            # Update the fields attribute in ProductTableInfo
+            product_table.fields = columns
+            product_table.save(update_fields=['fields'])
+
+            column_types = [col[1] for col in cursor.description]  # Extract column types
             column_type_mapping = {
                 'INTEGER': 'Integer',
                 'VARCHAR': 'String',
@@ -737,15 +923,13 @@ class DynamicTableDataListView(APIView):
                 'TIMESTAMP': 'Timestamp',
                 'DECIMAL': 'Decimal',
             }
-
             field_types = [column_type_mapping.get(str(col_type), str(col_type)) for col_type in column_types]
-
 
             # Include comprehensive table information in the response
             data[product_table.table_name] = {
-                'fields': product_table.fields,  # Original fields
+                'fields': columns,  # Updated fields
                 'field_types': field_types,  # SQL field types
-                'field_details': field_details
+                'field_details': field_details,
             }
 
         return Response(data, status=status.HTTP_200_OK)
@@ -848,6 +1032,20 @@ class DynamicTableDataSaveView(APIView):
                 print("SQL Query:", insert_query)
                 print("Values to Insert:", converted_values)
                 cursor.execute(insert_query, converted_values)
+            
+            catalog = Catalog.objects.filter(product=product).first()
+            if not catalog:
+                return Response({'error': 'Catalog not found for this product'}, status=status.HTTP_404_NOT_FOUND)
+
+            submission = SubmissionInfo.objects.create(
+                product=product,
+                submitted_by=request.user,
+                submitted_data=data,
+                submission_time=timezone.now(),
+                catalog=catalog,
+                domain=product.domain,
+                submission_type='Manual'
+            )
 
             return Response({'message': 'Data saved successfully'}, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -1218,7 +1416,8 @@ class DynamicTableExcelSaveView(APIView):
                 submitted_data=excel_data,
                 submission_time=timezone.now(),
                 catalog=catalog,
-                domain=product.domain
+                domain=product.domain,
+                submission_type='Upload'
             )
 
             return Response({
@@ -1241,7 +1440,7 @@ class DynamicTableExcelSaveView(APIView):
             # Create alert for the user
             alert_created = AlertService.create_alert(
                 user=request.user,
-                message=f'Excel data save failed for {product.name}. Error: {error_message}'
+                message=f'Excel data save failed for {product.schema_name}. Error: {error_message}'
             )
             
             return Response({
@@ -1456,6 +1655,7 @@ class SubmissionListView(generics.ListAPIView):
                 'submitted_by': submission.submitted_by.username,
                 'submission_time': submission.submission_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'submitted_data': submission.submitted_data,
+                'submission_type': submission.submission_type
             }
             for submission in submissions
         ]
@@ -1567,3 +1767,47 @@ class AlertService:
         except Exception as e:
             logging.error(f"Alert creation failed: {str(e)}")
             return None
+
+
+class ProductFieldValidationRuleDetailView(generics.RetrieveAPIView):
+    serializer_class = ProductFieldValidationRuleSerializer
+    lookup_field = 'product_id'
+
+    def get_queryset(self):
+        product_id = self.kwargs['product_id']
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            raise NotFound("Product not found.")
+        
+        return product.product_fields.all()
+    
+
+class GetCatalogIdByProduct(APIView):
+    """
+    API to retrieve the catalog ID for a given product ID
+    """
+    def get(self, request, product_id):
+        try:
+            # Fetch the product by ID
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(
+                {"error": "Product not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            # Get the catalog linked to the product
+            catalog = Catalog.objects.get(product=product)
+        except Catalog.DoesNotExist:
+            return Response(
+                {"message": "No catalog found for this product"},
+                status=status.HTTP_200_OK
+            )
+
+        # Return only the catalog ID
+        return Response(
+            {"catalog_id": catalog.id},
+            status=status.HTTP_200_OK
+        )

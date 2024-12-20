@@ -24,14 +24,20 @@ class LoginView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         # The parent class will handle authentication and set request.user
         response = super().post(request, *args, **kwargs)
+        print('here')
+        serializer = self.get_serializer(data=request.data)
+        print('here2')
+        serializer.is_valid(raise_exception=True)
+        print('here3')
+        user = serializer.user
 
         # After successful login, we can safely use request.user to get user details
         data = {
             "refresh": response.data['refresh'],
             "access": response.data['access'],
             "user": {
-                "username": request.user.username,
-                "is_staff": request.user.is_staff,
+                "username": user.username,
+                "is_staff": user.is_staff,
             }
         }
 

@@ -22,4 +22,6 @@ export type Field = {
   isRequired?: boolean
   dateValidation?: string | null
   picklist_values?: string | null
+  fieldId?: string | null
+  validationRuleId?: string | null
 }

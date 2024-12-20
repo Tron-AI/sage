@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { useSearchParams, useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
@@ -29,7 +29,7 @@ export default function ExcelUploadPage() {
   const [validating, setValidating] = useState(false)
   const [isValidated, setIsValidated] = useState(false)
 
-  const fetchTableMetadata = async () => {
+  const fetchTableMetadata = useCallback(async () => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
       router.push('/login')
@@ -50,11 +50,13 @@ export default function ExcelUploadPage() {
       console.error('Error fetching table metadata:', error)
       toast.error('Error fetching table metadata')
     }
-  }
+  }, [productId, router])
 
   useEffect(() => {
-    fetchTableMetadata()
-  }, [productId])
+    if (productId) {
+      fetchTableMetadata()
+    }
+  }, [productId, fetchTableMetadata])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -141,32 +143,50 @@ export default function ExcelUploadPage() {
   const handleUpload = async (): Promise<void> => {
     // If not already validated, validate first
     if (!isValidated) {
-      const isValid = await validateExcelData()
-      if (!isValid) return
+      const isValid = await validateExcelData();
+      if (!isValid) return;
     }
-
+  
     // Proceed with upload if validated
     if (excelData.length > 0) {
       try {
-        const token = localStorage.getItem('accessToken')
+        const token = localStorage.getItem('accessToken');
+        
         await axios.post(
           `http://localhost:8000/api/product/${productId}/save-excel-data/`,
           { data: excelData },
           {
             headers: {
               Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+              'Content-Type': 'application/json',
+            },
           }
-        )
-
-        toast.success('Data uploaded successfully!')
+        );
+  
+        toast.success('Data uploaded successfully!');
+  
+        const response = await axios.get(
+          `http://localhost:8000/api/product/${productId}/catalog/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+  
+        const catalogId = response.data.catalog_id;
+  
+        if (catalogId) {
+          setTimeout(() => {
+            router.push(`/submissions/${catalogId}`);
+          }, 3000);
+        }
       } catch (error) {
-        console.log(error)
-        toast.error('Failed to upload data')
+        console.log(error);
+        toast.error('Failed to upload data');
       }
     }
-  }
+  };
 
   const downloadExcelTemplate = async (): Promise<void> => {
     const token = localStorage.getItem('accessToken')

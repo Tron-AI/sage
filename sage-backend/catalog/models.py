@@ -165,6 +165,7 @@ class SubmissionInfo(models.Model):
     submitted_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="submissions")
     submission_time = models.DateTimeField(default=timezone.now)
     submitted_data = models.JSONField()
+    submission_type = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ['-submission_time']

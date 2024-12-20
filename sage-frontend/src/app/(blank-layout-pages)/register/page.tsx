@@ -143,7 +143,6 @@ const RegisterV2 = () => {
   }
 
   const register = async () => {
-    console.log('CALLED')
     if (!validateForm()) return
 
     const data = {

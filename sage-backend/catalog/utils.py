@@ -29,35 +29,26 @@ def apply_validation_rules(fields, table_name):
                 # Unique Constraint
                 if validation.is_unique:
                     cursor.execute(
-                        f'ALTER TABLE {table_name} ADD CONSTRAINT "unique_{field.name}" UNIQUE ({field_name});'
-                    )
-                
-                # Picklist Validation (Enum)
-                if validation.is_picklist and validation.picklist_values:
-                    picklist_values = validation.picklist_values.split(',')
-                    picklist_sql = ", ".join([f"'{value.strip()}'" for value in picklist_values])
-                    cursor.execute(
-                        f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.name}_picklist" '
-                        f'CHECK ({field_name} IN ({picklist_sql}));'
+                        f'ALTER TABLE {table_name} ADD CONSTRAINT "unique_{field.id}" UNIQUE ({field_name});'
                     )
                 
                 # Min/Max Value Constraints
                 if validation.has_min_max:
                     if validation.min_value is not None:
                         cursor.execute(
-                            f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.name}_min" '
+                            f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.id}_min" '
                             f'CHECK ({field_name} >= {validation.min_value});'
                         )
                     if validation.max_value is not None:
                         cursor.execute(
-                            f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.name}_max" '
+                            f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.id}_max" '
                             f'CHECK ({field_name} <= {validation.max_value});'
                         )
 
                 # Decimal Places Constraint
                 if validation.has_max_decimal and field.field_type == 'decimal':
                     cursor.execute(
-                        f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.name}_decimals" '
+                        f'ALTER TABLE {table_name} ADD CONSTRAINT "check_{field.id}_decimals" '
                         f'CHECK (ROUND({field_name}, {validation.max_decimal_places}) = {field_name});'
                     )
 

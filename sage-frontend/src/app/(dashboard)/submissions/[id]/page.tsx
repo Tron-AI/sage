@@ -16,7 +16,7 @@ interface Submission {
   id: number;
   submitted_by: string;
   submission_time: string;
-  icon?: string;
+  submission_type?: string;
 }
 
 export default function SubmissionPage({ params }: SubmissionPageProps) {
@@ -180,7 +180,7 @@ export default function SubmissionPage({ params }: SubmissionPageProps) {
                   id: submission.id.toString(),
                   name: submission.submitted_by,
                   product: { schema_name: submission.submission_time },
-                  icon: submission.icon || '',
+                  icon: submission.submission_type || '',
                 }}
                 onDrop={() => {}}
                 handleFileUpload={handleUploadFile} // Updated to match the type

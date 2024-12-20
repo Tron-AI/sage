@@ -1,18 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
 import FieldDefinePopup from '@components/FieldDefinePopup';
 import type { Field } from '@/types/field';
+import axios from 'axios';
 
 // Define the component props interface
 interface ProductCatalogFieldsProps {
   fields: Field[];
   setFields: React.Dispatch<React.SetStateAction<Field[]>>;
   onClose: () => void;
+  productId?: string;
+  isEditMode?: boolean;
 }
 
-const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, setFields, onClose }) => {
+const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, setFields, onClose, productId, isEditMode }) => {
   const [showDefinePopup, setShowDefinePopup] = useState(false);
   const [currentField, setCurrentField] = useState<Field | null>(null);
+
+  useEffect(() => {
+    if (isEditMode && productId) {
+      // Fetch the fields data for the product in edit mode
+      console.log(productId)
+      axios
+        .get(`http://localhost:8000/api/product/${productId}/field/`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+        })
+        .then(response => {
+          const fetchedFields = response.data.map((field: any, index: number) => ({
+            id: index + 1,
+            fieldId: field.id,
+            name: field.name,
+            type: field.field_type,
+            length: field.length,
+            isRequired: !field.is_null,
+            isPrimaryKey: field.is_primary_key,
+            isUnique: field.validation_rule.is_unique,
+            picklist_values: field.validation_rule.picklist_values,
+            minValue: field.validation_rule.min_value,
+            maxValue: field.validation_rule.max_value,
+            emailFormat: field.validation_rule.is_email_format,
+            phoneFormat: field.validation_rule.is_phone_format,
+            decimalPlaces: field.validation_rule.max_decimal_places,
+            dateFormat: field.validation_rule.date_format,
+            customValidation: field.validation_rule.custom_validation,
+            validationRuleId: field.validation_rule.id
+          }));
+          setFields(fetchedFields);
+        })
+        .catch(error => {
+          console.error('Error fetching fields:', error);
+        });
+    }
+  }, [isEditMode, productId, setFields]);
 
   const handleDefine = (field: Field) => {
     setCurrentField(field);
@@ -92,7 +133,7 @@ const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, set
                     Define
                   </button>
                   <button
-                    onClick={() => handleDeleteField(Number(field.id))} // Explicitly cast to number
+                    onClick={() => handleDeleteField(Number(field.id))}
                     className="bg-red-500 text-white py-1 px-3 rounded-md text-xs hover:bg-red-600"
                   >
                     Delete

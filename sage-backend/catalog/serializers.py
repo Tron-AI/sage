@@ -256,3 +256,32 @@ class ProductFieldSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'product': {'read_only': True} 
         }
+
+class ValidationRuleSerializer2(serializers.ModelSerializer):
+    class Meta:
+        model = ValidationRule
+        fields = [
+            'is_unique',
+            'is_picklist',
+            'picklist_values',
+            'has_min_max',
+            'min_value',
+            'max_value',
+            'is_email_format',
+            'is_phone_format',
+            'has_max_decimal',
+            'max_decimal_places',
+            'has_date_format',
+            'date_format',
+            'has_max_days_of_age',
+            'max_days_of_age',
+            'custom_validation',
+        ]
+
+
+class ProductFieldValidationRuleSerializer(serializers.ModelSerializer):
+    validation_rule = ValidationRuleSerializer2(read_only=True)
+
+    class Meta:
+        model = ProductField
+        fields = ['name', 'field_type', 'length', 'is_null', 'is_primary_key', 'validation_rule']

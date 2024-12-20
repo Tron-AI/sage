@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import DatePicker from 'react-datepicker'
 import { Upload, X, FileSpreadsheet, Building2, Database, Clock, Settings } from 'lucide-react'
-import type { Field } from '@/types/field';
+import type { Field } from '@/types/field'
 import 'react-datepicker/dist/react-datepicker.css'
 import CreatableSelect from 'react-select/creatable'
 import axios from 'axios'
@@ -23,10 +23,11 @@ const predefinedTags = [
   { value: 'financial', label: 'Financial' }
 ]
 
-
 type AddNewCatalogProps = {
   fields: Field[]
   onDefineFields: (shouldUpdate: boolean) => void
+  initialData?: any // For edit mode
+  isEditMode?: boolean // Flag to indicate edit mode
 }
 
 type User = {
@@ -62,12 +63,32 @@ type FormData = {
   sftpFolder: string
 }
 
+interface ValidationPayload {
+  id?: string
+  product_field?: string | number
+  is_unique: boolean
+  is_picklist: boolean
+  picklist_values: string
+  has_min_max: boolean
+  min_value: number | null
+  max_value: number | null
+  is_email_format: boolean
+  is_phone_format: boolean
+  has_max_decimal: boolean
+  max_decimal_places: number | null
+  has_date_format: boolean
+  date_format: string
+  has_max_days_of_age: boolean
+  max_days_of_age: number | null
+  custom_validation: string
+}
+
 interface Tag {
   label: string
   value: string
 }
 
-const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields }) => {
+const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields, initialData, isEditMode }) => {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
@@ -77,6 +98,8 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
   const [selectedUser, setSelectedUser] = useState<Option | null>(null)
 
   const [iconPreview, setIconPreview] = useState<string | null>(null)
+  const [productId, setProductId] = useState<string | null>(null)
+  const [catalogId, setCatalogId] = useState<string | null>(null)
   const [deadline, setDeadline] = useState<Date | null>(null)
   const [selectedTags, setSelectedTags] = useState<MultiValue<Tag>>([])
   const [formData, setFormData] = useState<FormData>({
@@ -110,6 +133,16 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
           user // Store full user object
         }))
         setUsers(userOptions)
+        if (isEditMode && initialData && initialData.responsibleUser) {
+          const matchingUser = userOptions.find(option => option.value === initialData.responsibleUser)
+          if (matchingUser) {
+            setSelectedUser(matchingUser)
+            setFormData(prev => ({
+              ...prev,
+              responsibleUser: matchingUser.value
+            }))
+          }
+        }
       } catch (error) {
         setUserError('Failed to load users')
         console.error('Error loading users:', error)
@@ -119,8 +152,53 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
     }
 
     getUsers()
-  }, [API_URL, token])
+  }, [API_URL, token, isEditMode, initialData])
+  const parseDeadline = (dateString: string | null) => {
+    if (!dateString) return null
 
+    // If date is in ISO format
+    try {
+      const date = new Date(dateString)
+      
+      return !isNaN(date.getTime()) ? date : null
+    } catch {
+      return null
+    }
+  }
+
+  useEffect(() => {
+    if (isEditMode && initialData) {
+      console.log(initialData)
+      setFormData({
+        catalogName: initialData.catalogName,
+        tags: initialData.tags,
+        corporate: initialData.corporate,
+        responsibleUser: initialData.responsibleUser,
+        menu: initialData.menu,
+        product: initialData.productName,
+        domain: initialData.domain,
+        description: initialData.description,
+        mandatory: initialData.mandatory,
+        frequency: initialData.frequency,
+        apiKey: initialData.api_key,
+        submissionEmail: initialData.submission_email,
+        authorizedEmails: initialData.authorizedEmails,
+        sftpFolder: initialData.sftp_folder
+      })
+      setProductId(initialData.productId)
+      setCatalogId(initialData.id)
+      setDeadline(parseDeadline(initialData.deadline))
+      console.log(initialData.deadline)
+      console.log(deadline)
+      setIconPreview(initialData.icon)
+      setSelectedTags(
+        initialData.tags.split(',').map((tag: string) => ({
+          label: tag,
+          value: tag
+        }))
+      )
+    }
+  }, [isEditMode, initialData])
 
   if (!token) {
     // Redirect to login page if access token is not found
@@ -170,33 +248,33 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
   const inputClasses =
     'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors duration-200'
 
-    const customStyles: StylesConfig<Tag, true> = {
-      control: (base: CSSObjectWithLabel, state: any): CSSObjectWithLabel => ({
-        ...base,
-        minHeight: '42px',
-        borderColor: state.isFocused ? '#60A5FA' : '#D1D5DB',
-        boxShadow: state.isFocused ? '0 0 0 2px rgba(96, 165, 250, 0.2)' : 'none',
-        '&:hover': {
-          borderColor: '#60A5FA'
-        }
-      }),
-      multiValue: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
-        ...base,
-        backgroundColor: '#EFF6FF',
-        borderRadius: '6px',
-        padding: '2px'
-      }),
-      multiValueLabel: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
-        ...base,
-        color: '#2563EB',
-        fontSize: '0.875rem'
-      }),
-      multiValueRemove: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
-        ...base,
-        color: '#2563EB',
-        cursor: 'pointer',
-      })
-    }
+  const customStyles: StylesConfig<Tag, true> = {
+    control: (base: CSSObjectWithLabel, state: any): CSSObjectWithLabel => ({
+      ...base,
+      minHeight: '42px',
+      borderColor: state.isFocused ? '#60A5FA' : '#D1D5DB',
+      boxShadow: state.isFocused ? '0 0 0 2px rgba(96, 165, 250, 0.2)' : 'none',
+      '&:hover': {
+        borderColor: '#60A5FA'
+      }
+    }),
+    multiValue: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
+      ...base,
+      backgroundColor: '#EFF6FF',
+      borderRadius: '6px',
+      padding: '2px'
+    }),
+    multiValueLabel: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
+      ...base,
+      color: '#2563EB',
+      fontSize: '0.875rem'
+    }),
+    multiValueRemove: (base: CSSObjectWithLabel): CSSObjectWithLabel => ({
+      ...base,
+      color: '#2563EB',
+      cursor: 'pointer'
+    })
+  }
 
   // Reset form
   const resetForm = () => {
@@ -291,23 +369,50 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
       console.log(catalogData)
 
       // Send POST request with JSON payload
-      const response = await axios.post('http://127.0.0.1:8000/api/catalogs/', catalogData, {
-        headers: {
-          'Content-Type': 'application/json', // Set content type to JSON
-          Authorization: `Bearer ${token}`
-        }
-      })
-      if (response.status === 201) {
-        // Check if the status is 201 (created)
-        toast.success('Catalog created successfully!', {
-          position: 'top-right',
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined
+      if (!isEditMode) {
+        const response = await axios.post('http://127.0.0.1:8000/api/catalogs/', catalogData, {
+          headers: {
+            'Content-Type': 'application/json', // Set content type to JSON
+            Authorization: `Bearer ${token}`
+          }
         })
+        if (response.status === 201) {
+          // Check if the status is 201 (created)
+          toast.success('Catalog created successfully!', {
+            position: 'top-right',
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined
+          })
+          setTimeout(() => {
+            router.push('/catalog');
+          }, 3000);
+        }
+      } else {
+        const response = await axios.put(`http://127.0.0.1:8000/api/catalogs/${catalogId}/`, catalogData, {
+          headers: {
+            'Content-Type': 'application/json', // Set content type to JSON
+            Authorization: `Bearer ${token}`
+          }
+        })
+        if (response.status === 200) {
+          // Check if the status is 201 (created)
+          toast.success('Catalog updated successfully!', {
+            position: 'top-right',
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined
+          })
+          setTimeout(() => {
+            router.push('/catalog');
+          }, 3000);
+        }
       }
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
@@ -335,15 +440,25 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
         description: formData.description
       }
       const url = 'http://127.0.0.1:8000/api/products/'
+      if (!isEditMode) {
+        const response = await axios.post(url, schemaData, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        })
 
-      const response = await axios.post(url, schemaData, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      })
+        return response.data.id
+      } else {
+        const response = await axios.put(`http://127.0.0.1:8000/api/products/${productId}/`, schemaData, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        })
 
-      return response.data.id
+        return response.data.id
+      }
     } catch (err) {
       setErrors(prevErrors => [...prevErrors, 'Failed to create schema. Please try again.'])
       throw err
@@ -358,6 +473,7 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
 
       // Create a set to track names
       const fieldNames = new Set()
+      console.log(fields)
 
       for (const field of fields) {
         // Check if the field name is already in the set
@@ -374,38 +490,51 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
           name: field.name,
           field_type: field.type.toLowerCase(),
           length: field.length,
-          is_null: field.null,
-          is_primary_key: field.primaryKey
+          is_null: field.isRequired || field.isPrimaryKey ? false : true,
+          is_primary_key: field.isPrimaryKey
         }
         console.log(fieldPayload)
 
-        // Post the field to the API and get the response
-        const response = await axios.post(url, fieldPayload, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        })
+        let response
+        if (field.fieldId) {
+          // Update existing field using PUT
+          const updateUrl = `${url}${field.fieldId}/`
+          response = await axios.put(updateUrl, fieldPayload, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          })
+          field.id = field.fieldId
+          console.log(`Field updated with ID: ${field.id}`)
+        } else {
+          // Create a new field using POST
+          response = await axios.post(url, fieldPayload, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          })
+          field.id = response.data.id
+          console.log(`Field created with ID: ${field.id}`)
+        }
 
-        // Save the returned field ID in the corresponding field
-        field.id = response.data.id
-        console.log(`Field created with ID: ${field.id}`)
-
+        // Handle validation rule submission
         try {
           const response2 = await handleValidationRuleSubmit(productId, field)
-          console.log(`Validation rule created with id: ${response2.data.id}`)
+          console.log(`Validation rule created/updated with id: ${response2.data.id}`)
         } catch (validationError) {
-          console.error(`Validation rule creation failed for field ID: ${field.id}`, validationError)
+          console.error(`Validation rule creation/update failed for field ID: ${field.id}`, validationError)
           setErrors(prevErrors => [
             ...prevErrors,
-            `Validation rule creation failed for field ID: ${field.id}` + validationError
+            `Validation rule creation/update failed for field ID: ${field.id}` + validationError
           ])
         }
       }
     } catch (err) {
-      console.error('Failed to create product fields:', err)
-      setErrors(prevErrors => [...prevErrors, 'Failed to create product fields.'])
-      throw new Error('Error creating fields')
+      console.error('Failed to create/update product fields:', err)
+      setErrors(prevErrors => [...prevErrors, 'Failed to create/update product fields.'])
+      throw new Error('Error creating/updating fields')
     }
   }
 
@@ -413,10 +542,10 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
     const url = `http://127.0.0.1:8000/api/product/${productId}/field/${field.id}/validation-rule/`
 
     try {
-      const validationPayload = {
+      const validationPayload: ValidationPayload = {
         is_unique: field.isUnique || false,
-        is_picklist: field.isPicklist || false,
-        picklist_values: field.picklistValues || '',
+        is_picklist: field.picklist_values && field.picklist_values.trim() !== '' ? true : false,
+        picklist_values: field.picklist_values || '',
         has_min_max: !!(field.minValue || field.maxValue),
         min_value: field.minValue || null,
         max_value: field.maxValue || null,
@@ -424,27 +553,51 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
         is_phone_format: field.phoneFormat || false,
         has_max_decimal: !!field.decimalPlaces,
         max_decimal_places: field.decimalPlaces || null,
-        has_date_format: field.hasDateFormat || false,
+        has_date_format: field.dateFormat ? true : false,
         date_format: field.dateFormat || '',
-        has_max_days_of_age: field.hasMaxDaysOfAge || false,
+        has_max_days_of_age: field.maxDaysOfAge ? true : false,
         max_days_of_age: field.maxDaysOfAge || null,
         custom_validation: field.customValidation || ''
       }
 
+      if (field.validationRuleId) {
+        validationPayload.id = field.validationRuleId
+        validationPayload.product_field = field.id
+      }
+      console.log(field)
       console.log(validationPayload)
-      const response = await axios.post(url, validationPayload, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      })
-      console.log(`Validation rule created successfully for field ID: ${field.id}`)
+
+      let response
+      if (field.validationRuleId && isEditMode) {
+        // Update validation rule using PUT
+        const updateUrl = `${url}${field.validationRuleId}/`
+        response = await axios.put(updateUrl, validationPayload, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        })
+        console.log(`Validation rule updated successfully for field ID: ${field.id}`)
+      } else {
+        // Create a new validation rule using POST
+        response = await axios.post(url, validationPayload, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        })
+        console.log(`Validation rule created successfully for field ID: ${field.id}`)
+        field.validationRuleId = response.data.id
+      }
 
       return response
     } catch (err) {
-      console.error(`Failed to create validation rule for field ID: ${field.id}`, err)
-      setErrors(prevErrors => [...prevErrors, `Failed to create validation rule for field ID: ${field.id}` + err])
-      throw new Error('Error creating validation rule')
+      console.error(`Failed to create/update validation rule for field ID: ${field.id}`, err)
+      setErrors(prevErrors => [
+        ...prevErrors,
+        `Failed to create/update validation rule for field ID: ${field.id}` + err
+      ])
+      throw new Error('Error creating/updating validation rule')
     }
   }
 
@@ -508,14 +661,14 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
   }
 
   const handleUserChange = (newValue: unknown) => {
-    const selectedOption = newValue as Option;  // Type-cast newValue to Option
-    setSelectedUser(selectedOption);
-  
+    const selectedOption = newValue as Option // Type-cast newValue to Option
+    setSelectedUser(selectedOption)
+
     // Update form data
     setFormData(prev => ({
       ...prev,
       responsibleUser: selectedOption ? selectedOption.value : ''
-    }));
+    }))
   }
 
   const userSelectStyles: StylesConfig = {
@@ -544,7 +697,7 @@ const AddNewCatalog: React.FC<AddNewCatalogProps> = ({ fields, onDefineFields })
       <div className='max-w-7xl mx-auto bg-white shadow-xl rounded-xl overflow-hidden'>
         <div className='bg-gradient-to-r from-blue-600 to-purple-600 p-6 flex items-center gap-3'>
           <FileSpreadsheet className='w-8 h-8 text-white' />
-          <h1 className='text-2xl font-bold text-white'>Add New Catalog</h1>
+          <h1 className='text-2xl font-bold text-white'>{isEditMode ? 'Edit Catalog' : 'Add New Catalog'}</h1>
         </div>
 
         {/* Add error message display */}

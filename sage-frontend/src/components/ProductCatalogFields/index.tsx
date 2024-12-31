@@ -11,14 +11,15 @@ interface ProductCatalogFieldsProps {
   onClose: () => void;
   productId?: string;
   isEditMode?: boolean;
+  isFetch?: boolean;
 }
 
-const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, setFields, onClose, productId, isEditMode }) => {
+const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, setFields, onClose, productId, isEditMode, isFetch }) => {
   const [showDefinePopup, setShowDefinePopup] = useState(false);
   const [currentField, setCurrentField] = useState<Field | null>(null);
 
   useEffect(() => {
-    if (isEditMode && productId) {
+    if (isEditMode && productId && isFetch) {
       // Fetch the fields data for the product in edit mode
       console.log(productId)
       axios
@@ -32,7 +33,7 @@ const ProductCatalogFields: React.FC<ProductCatalogFieldsProps> = ({ fields, set
             id: index + 1,
             fieldId: field.id,
             name: field.name,
-            type: field.field_type,
+            type: field.field_type.toUpperCase(),
             length: field.length,
             isRequired: !field.is_null,
             isPrimaryKey: field.is_primary_key,

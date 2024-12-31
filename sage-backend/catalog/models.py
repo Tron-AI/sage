@@ -13,6 +13,7 @@ class Product(models.Model):
     schema_name = models.CharField(max_length=255)
     domain = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    is_homologated = models.BooleanField(default=False, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -53,7 +53,9 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'corsheaders',  # Add this app
     'accounts',  # our authentication app
-    'catalog'
+    'catalog',
+    'homologation',
+    'django_cron',
 ]
 
 MIDDLEWARE = [
@@ -179,3 +181,7 @@ EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+
+CRONJOBS = [
+    ('*/5 * * * *', 'homologation.cron.SendHomologationReportCronJob')
+]

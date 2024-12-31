@@ -8,7 +8,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar'
 import type { VerticalMenuContextProps } from '@menu/components/vertical-menu/Menu'
 
 // Component Imports
-import { Menu, MenuItem } from '@menu/vertical-menu'
+import { Menu, MenuItem,SubMenu } from '@menu/vertical-menu'
 
 // Hook Imports
 import useVerticalNav from '@menu/hooks/useVerticalNav'
@@ -80,6 +80,20 @@ const VerticalMenu = ({ scrollMenu }: Props) => {
         <MenuItem href='/homologation-configurations' icon={<i className='tabler-info-circle' />}>
           Homologation Config
         </MenuItem>
+        <SubMenu label="Homologation" icon={<i className='tabler-info-circle' />}>
+        <MenuItem href='/homologation/product-matching' icon={<i className='tabler-info-circle' />}>
+          Manual Matching
+        </MenuItem>
+        <MenuItem href='/homologation/auto-matching' icon={<i className='tabler-info-circle' />}>
+          Automatic Matching
+        </MenuItem>
+        <MenuItem href='/homologation/upload' icon={<i className='tabler-info-circle' />}>
+          Upload
+        </MenuItem>
+        <MenuItem href='/homologation/download' icon={<i className='tabler-info-circle' />}>
+          Download
+        </MenuItem>
+      </SubMenu>
       </Menu>
       {/* <Menu
         popoutMenuOffset={{ mainAxis: 23 }}

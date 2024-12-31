@@ -12,6 +12,12 @@ interface DashboardCardProps {
   color: string
 }
 
+interface PendingAlertData {
+  distributor: string;
+  message: string;
+  status: 'Pending' | 'Rejected' | 'Awaiting';
+}
+
 const DashboardCard: React.FC<DashboardCardProps> = ({ title, value, subtitle, color }) => (
   <div className={`p-4 rounded-lg shadow ${color}`}>
     <h3 className='text-xl font-bold'>{value}</h3>
@@ -71,7 +77,7 @@ interface BarData {
 const HomologationDashboard = () => {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-
+  const [pendingAlerts, setPendingAlerts] = useState<PendingAlertData[]>([]);
   const [pieData, setPieData] = useState<PieData[]>([])
   const [barData, setBarData] = useState<BarData[]>([])
 
@@ -94,7 +100,7 @@ const HomologationDashboard = () => {
     }
     const fetchStatusCounts = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/catalog-status-count/', {
+        const response = await fetch('http://127.0.0.1:8000/api/homologation/dashboard-api/', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -106,6 +112,7 @@ const HomologationDashboard = () => {
 
         setStatusCounts(data.status_counts)
         setTotalCatalogs(data.total_catalogs)
+        setPendingAlerts(data.pending_alerts);
 
         const pieDataArray = Object.entries(data.status_percentages).map(([name, value]) => ({
           name,
@@ -213,9 +220,14 @@ const HomologationDashboard = () => {
 
       <div className='bg-white p-4 rounded-lg shadow'>
         <h2 className='text-xl font-bold mb-4'>Pending Alerts</h2>
-        <PendingAlert distributor='Distributor A' message='has 50 pending homologations' status='Pending' />
-        <PendingAlert distributor='Distributor B' message='has 20 products with issues' status='Rejected' />
-        <PendingAlert distributor='Distributor C' message='has 30 products awaiting approval' status='Awaiting' />
+        {pendingAlerts.map((alert, index) => (
+          <PendingAlert
+            key={index}
+            distributor={alert.distributor}
+            message={alert.message}
+            status={alert.status}
+          />
+        ))}
       </div>
     </div>
   )

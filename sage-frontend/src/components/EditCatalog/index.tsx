@@ -36,6 +36,7 @@ const EditCatalog: React.FC<EditCatalogProps> = ({ catalogId }) => {
   const [fields, setFields] = useState<Field[]>([])
   const [catalogData, setCatalogData] = useState<CatalogData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isFetch, setIsFetch] = useState<boolean>(true)
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -115,6 +116,7 @@ const EditCatalog: React.FC<EditCatalogProps> = ({ catalogId }) => {
   }
 
   const handleCloseFieldsPopup = () => {
+    setIsFetch(false)
     setShowFieldsPopup(false)
   }
 
@@ -148,6 +150,7 @@ const EditCatalog: React.FC<EditCatalogProps> = ({ catalogId }) => {
               onClose={handleCloseFieldsPopup}
               productId={catalogData.productId}
               isEditMode={true}
+              isFetch={isFetch}
             />
           </div>
         </div>

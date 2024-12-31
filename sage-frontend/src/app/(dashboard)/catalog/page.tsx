@@ -137,12 +137,10 @@ const CatalogsPage = () => {
   }
 
   const handleEdit = (id: string) => {
-    console.log('Editing catalog:', id)
     router.push(`/catalog/edit/${id}`)
   }
 
   const handleView = (id: string) => {
-    console.log('Viewing catalog:', id)
     router.push(`/catalog/view/${id}`)
   }
 

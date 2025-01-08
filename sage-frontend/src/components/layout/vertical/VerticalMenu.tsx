@@ -27,6 +27,7 @@ type RenderExpandIconProps = {
 
 type Props = {
   scrollMenu: (container: any, isPerfectScrollbar: boolean) => void
+  isAdmin: boolean
 }
 
 const RenderExpandIcon = ({ open, transitionDuration }: RenderExpandIconProps) => (
@@ -35,7 +36,7 @@ const RenderExpandIcon = ({ open, transitionDuration }: RenderExpandIconProps) =
   </StyledVerticalNavExpandIcon>
 )
 
-const VerticalMenu = ({ scrollMenu }: Props) => {
+const VerticalMenu = ({ scrollMenu, isAdmin }: Props) => {
   // Hooks
   const theme = useTheme()
   const verticalNavOptions = useVerticalNav()
@@ -74,26 +75,26 @@ const VerticalMenu = ({ scrollMenu }: Props) => {
         <MenuItem href='/catalog' icon={<i className='tabler-info-circle' />}>
           Catalogs
         </MenuItem>
-        <MenuItem href='/homologation-dashboard' icon={<i className='tabler-info-circle' />}>
-          Homologation Dashboard
-        </MenuItem>
-        <MenuItem href='/homologation-configurations' icon={<i className='tabler-info-circle' />}>
-          Homologation Config
-        </MenuItem>
-        <SubMenu label="Homologation" icon={<i className='tabler-info-circle' />}>
-        <MenuItem href='/homologation/product-matching' icon={<i className='tabler-info-circle' />}>
-          Manual Matching
-        </MenuItem>
-        <MenuItem href='/homologation/auto-matching' icon={<i className='tabler-info-circle' />}>
-          Automatic Matching
-        </MenuItem>
-        <MenuItem href='/homologation/upload' icon={<i className='tabler-info-circle' />}>
-          Upload
-        </MenuItem>
-        <MenuItem href='/homologation/download' icon={<i className='tabler-info-circle' />}>
-          Download
-        </MenuItem>
-      </SubMenu>
+        <SubMenu label='Homologation' icon={<i className='tabler-info-circle' />}>
+          <MenuItem href='/homologation-dashboard' icon={<i className='tabler-info-circle' />}>
+            Dashboard
+          </MenuItem>
+          {isAdmin && (
+            <MenuItem href='/homologation-configurations'>Configuration</MenuItem>
+          )}
+          <MenuItem href='/homologation/product-matching' icon={<i className='tabler-info-circle' />}>
+            Manual Matching
+          </MenuItem>
+          <MenuItem href='/homologation/auto-matching' icon={<i className='tabler-info-circle' />}>
+            Automatic Matching
+          </MenuItem>
+          <MenuItem href='/homologation/upload' icon={<i className='tabler-info-circle' />}>
+            Upload
+          </MenuItem>
+          <MenuItem href='/homologation/download' icon={<i className='tabler-info-circle' />}>
+            Download
+          </MenuItem>
+        </SubMenu>
       </Menu>
       {/* <Menu
         popoutMenuOffset={{ mainAxis: 23 }}

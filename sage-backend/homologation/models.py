@@ -1,8 +1,9 @@
-from django.db import models
+from django.db import models, connections
 from catalog.models import Product
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.management import call_command
 
 User = get_user_model()
 
@@ -94,29 +95,61 @@ class HomologationConfiguration(models.Model):
     product = models.CharField(max_length=255)
     responsible = models.CharField(max_length=255)
     frequency = models.CharField(max_length=50)
-    
+
     # Database configuration
     db_ip = models.CharField(max_length=255, blank=True)
     db_user = models.CharField(max_length=255, blank=True)
     db_password = models.CharField(max_length=255, blank=True)
-    
+
     # SFTP configuration
     sftp_ip = models.CharField(max_length=255, blank=True)
     sftp_user = models.CharField(max_length=255, blank=True)
     sftp_password = models.CharField(max_length=255, blank=True)
-    
+
     # Boolean flags
     non_homologated_products_mapping = models.BooleanField(default=False)
     homologation_history_mapping = models.BooleanField(default=False)
     stock_table_mapping = models.BooleanField(default=False)
     email_configuration = models.BooleanField(default=False)
     alert_configuration = models.BooleanField(default=False)
-    
+
     # Email addresses (stored as comma-separated string)
     approved_emails = models.TextField(blank=True)
-    
+
+    def save(self, *args, **kwargs):
+        # Fetch the current instance from the database, if it exists
+        if self.pk:
+            old_instance = HomologationConfiguration.objects.get(pk=self.pk)
+            # Check if the relevant fields have changed
+            if (
+                old_instance.db_ip != self.db_ip or
+                old_instance.db_user != self.db_user or
+                old_instance.db_password != self.db_password
+            ):
+                self.update_database_settings()
+
+        # Call the parent class's save method
+        super().save(*args, **kwargs)
+
+    def update_database_settings(self):
+        """
+        Update the DATABASES dictionary dynamically.
+        """
+        try:
+            settings.DATABASES['default'].update({
+                'HOST': self.db_ip or 'db',
+                'USER': self.db_user or 'postgres',
+                'PASSWORD': self.db_password or '',
+            })
+            # Close existing database connections to apply the new settings
+            connections.close_all()
+            # Apply migrations
+            call_command('migrate')
+            print("Database configuration updated successfully and migrations applied.")
+        except Exception as e:
+            print(f"Error updating database configuration or applying migrations: {e}")
+
     class Meta:
-        # Ensure only one configuration exists
         constraints = [
             models.constraints.UniqueConstraint(fields=['id'], name='single_configuration')
         ]

@@ -4,7 +4,8 @@ FROM python:3.9-alpine
 WORKDIR /app/backend
 
 # Install system dependencies
-RUN apk add --no-cache postgresql-dev build-base postgresql-client
+RUN apk add --no-cache postgresql-dev build-base postgresql-client unixodbc-dev libpq-dev \
+    && apk add --no-cache --virtual .build-deps openssl-dev
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1

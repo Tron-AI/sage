@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import axios from 'axios'
 
 interface ConfigurationData {
   name: string
@@ -211,20 +212,6 @@ const HomologationConfigurations = () => {
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
-  
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        router.push('/login')
-
-        return
-      }
-      setIsAuthenticated(true)
-      fetchConfiguration()
-    }
-    checkAuth()
-  }, [router])
 
   const fetchConfiguration = async () => {
     const token = localStorage.getItem('accessToken')
@@ -244,6 +231,41 @@ const HomologationConfigurations = () => {
     } catch (error) {
       console.error('Error fetching configuration:', error)
     }
+  }
+  
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      router.push('/login')
+
+      return
+    }
+
+    const userDetails = async () => {
+      try {
+        const response = await axios.get('http://127.0.0.1:8000/api/auth/user/details/', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+        if (response.data.is_staff) {
+          setIsAuthenticated(true)
+        } else {
+          router.push('/home')
+          setIsAuthenticated(false)
+        }
+      } catch (err) {
+        router.push('/home')
+        console.log('User details not found')
+      }
+      
+    }
+    userDetails()
+    fetchConfiguration()
+  }, [router])
+
+  if (!isAuthenticated) {
+    return <div>Loading...</div> 
   }
 
   const handleChange = (updates: Partial<ConfigurationData>) => {

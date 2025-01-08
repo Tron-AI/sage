@@ -20,6 +20,7 @@ from django.conf import settings
 from .models import Product, OfficialCatalog, Homologation, HomologationConfiguration
 from catalog.models import Catalog
 from .ml_model import ProductMatcher
+from .utils import save_file_to_sql_server
 from .serializers import ProductMatchSerializer, HomologationSerializer, HomologationConfigurationSerializer, HomologationConfigurationBooleanFieldsSerializer
 
 class ProductListView(APIView):
@@ -251,6 +252,8 @@ class UploadCatalogData(APIView):
             return JsonResponse({"error": "No file provided"}, status=400)
 
         try:
+            save_file_to_sql_server(file, origin="official catalog", uploaded_by=request.user.username)
+
             df = pd.read_excel(file)
 
             required_columns = ['sku', 'name', 'description', 'category', 'brand', 'is_active']
@@ -351,6 +354,8 @@ class HomologationUploadView(APIView):
             return JsonResponse({"error": error_message}, status=400)
 
         try:
+            save_file_to_sql_server(file, origin="homologation", uploaded_by=request.user.username)
+
             df = pd.read_excel(file)
 
             # Updated column names

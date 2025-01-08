@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // Next Imports
 import Link from 'next/link'
@@ -23,6 +23,9 @@ import { useSettings } from '@core/hooks/useSettings'
 
 // Style Imports
 import navigationCustomStyles from '@core/styles/vertical/navigationCustomStyles'
+
+// Axios Import for fetching user details
+import axios from 'axios'
 
 type Props = {
   mode: Mode
@@ -50,6 +53,9 @@ const StyledBoxForShadow = styled('div')(({ theme }) => ({
 const Navigation = (props: Props) => {
   // Props
   const { mode, systemMode } = props
+
+  // State
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Hooks
   const verticalNavOptions = useVerticalNav()
@@ -94,7 +100,21 @@ const Navigation = (props: Props) => {
       collapseVerticalNav(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.layout])
+    // Fetch user details to determine admin status
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      axios
+        .get('http://127.0.0.1:8000/api/auth/user/details/', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then((response) => {
+          setIsAdmin(response.data.is_staff)
+        })
+        .catch(() => {
+          console.error('Unable to fetch user details')
+        })
+    }
+  }, [settings.layout, collapseVerticalNav])
 
   return (
     // eslint-disable-next-line lines-around-comment
@@ -126,7 +146,7 @@ const Navigation = (props: Props) => {
         )}
       </NavHeader>
       <StyledBoxForShadow ref={shadowRef} />
-      <VerticalMenu scrollMenu={scrollMenu} />
+      <VerticalMenu scrollMenu={scrollMenu} isAdmin={isAdmin} />
     </VerticalNav>
   )
 }

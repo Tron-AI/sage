@@ -5,8 +5,8 @@ import { Search, CheckCircle, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { ToastContainer, toast } from 'react-toastify' // Import Toastify
-import 'react-toastify/dist/ReactToastify.css' // Import Toastify styles
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import './page.css'
 
 interface DistributorProduct {
@@ -25,7 +25,8 @@ interface CatalogProduct {
 }
 
 const ProductMatchingInterface = () => {
-  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState<string>('')
+  const [distributorSearchQuery, setDistributorSearchQuery] = useState<string>('')
   const [distributorProducts, setDistributorProducts] = useState<DistributorProduct[]>([])
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([])
   const [selectedDistributorProduct, setSelectedDistributorProduct] = useState<DistributorProduct | null>(null)
@@ -39,7 +40,7 @@ const ProductMatchingInterface = () => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
       router.push('/login')
-
+      
       return
     }
     axios
@@ -88,8 +89,16 @@ const ProductMatchingInterface = () => {
   // Filter catalog products based on search query
   const filteredCatalogProducts = catalogProducts.filter(
     product =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase())
+      product.name.toLowerCase().includes(catalogSearchQuery.toLowerCase()) ||
+      product.sku.toLowerCase().includes(catalogSearchQuery.toLowerCase())
+  )
+
+  // Filter distributor products based on search query
+  const filteredDistributorProducts = distributorProducts.filter(
+    product =>
+      product.schema_name.toLowerCase().includes(distributorSearchQuery.toLowerCase()) ||
+      product.domain.toLowerCase().includes(distributorSearchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(distributorSearchQuery.toLowerCase())
   )
 
   const handleMatch = () => {
@@ -160,9 +169,21 @@ const ProductMatchingInterface = () => {
           <CardHeader>
             <CardTitle>Distributor Products (Unmatched)</CardTitle>
           </CardHeader>
-          <CardContent className='h-[400px] overflow-y-auto  overflow-x-hidden custom-scrollbar'>
+          <CardContent className='h-[400px] overflow-y-auto overflow-x-hidden custom-scrollbar'>
+            <div className='mb-4'>
+              <div className='relative'>
+                <Search className='absolute left-3 top-2 text-gray-400' size={16} />
+                <input
+                  type='text'
+                  placeholder='Search by name, domain, or description...'
+                  className='w-full pl-10 pr-4 py-2 border rounded-lg'
+                  value={distributorSearchQuery}
+                  onChange={e => setDistributorSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
             <div className='space-y-4'>
-              {distributorProducts.map(product => (
+              {filteredDistributorProducts.map(product => (
                 <div
                   key={product.id}
                   className={`p-4 border rounded-lg cursor-pointer ${
@@ -197,8 +218,8 @@ const ProductMatchingInterface = () => {
                   type='text'
                   placeholder='Search by name or SKU...'
                   className='w-full pl-10 pr-4 py-2 border rounded-lg'
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  value={catalogSearchQuery}
+                  onChange={e => setCatalogSearchQuery(e.target.value)}
                 />
               </div>
             </div>

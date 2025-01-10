@@ -129,6 +129,8 @@ class ProductMatchView(APIView):
                         results.append({
                             'product_id': product.id,
                             'product_name': product.schema_name,
+                            'product_domain': product.domain,
+                            'product_description': product.description,
                             'homologation_id': homologation_id,
                             'best_match': ProductMatchSerializer([best_match], many=True).data[0]
                         })

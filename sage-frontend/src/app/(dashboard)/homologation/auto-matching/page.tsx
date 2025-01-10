@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { toast, ToastContainer } from 'react-toastify'
+import { Search } from 'lucide-react'
 import 'react-toastify/dist/ReactToastify.css'
 
 interface Match {
@@ -19,6 +20,8 @@ interface Match {
   }
   product_id: number
   product_name: string
+  product_description: string
+  product_domain: string
   homologation_id: number
 }
 
@@ -28,11 +31,18 @@ const AutoMatchingPage: React.FC = () => {
   const [allowProductMatching, setAllowProductMatching] = useState<boolean | null>(null)
   const router = useRouter()
 
+  // Filter states
+  const [filters, setFilters] = useState({
+    productName: '',
+    productDescription: '',
+    productDomain: ''
+  })
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
       router.push('/login')
-
+      
       return
     }
     fetchConfiguration()
@@ -89,7 +99,6 @@ const AutoMatchingPage: React.FC = () => {
       )
       await fetchMatches()
 
-      // Show a success toast when the match is accepted or rejected
       if (status === 'approved') {
         toast.success('Match accepted successfully!')
       } else {
@@ -101,6 +110,29 @@ const AutoMatchingPage: React.FC = () => {
       toast.error('Failed to update match. Please try again.')
     }
   }
+
+  // Handle filter changes
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  // Filter matches based on all filters
+  const filteredMatches = matches.filter(match => {
+    const nameMatch = match.product_name.toLowerCase().includes(filters.productName.toLowerCase())
+    const descriptionMatch = match.product_description.toLowerCase().includes(filters.productDescription.toLowerCase())
+    const domainMatch = match.product_domain.toLowerCase().includes(filters.productDomain.toLowerCase())
+
+    // Only apply filters that have values
+    const nameFilter = filters.productName === '' || nameMatch
+    const descriptionFilter = filters.productDescription === '' || descriptionMatch
+    const domainFilter = filters.productDomain === '' || domainMatch
+
+    return nameFilter && descriptionFilter && domainFilter
+  })
 
   if (loading) {
     return (
@@ -122,18 +154,59 @@ const AutoMatchingPage: React.FC = () => {
               <CardTitle>ML-Based Suggestions</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filters Section */}
+              <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
+                <div className='relative'>
+                  <Search className='absolute left-3 top-2.5 text-gray-400' size={16} />
+                  <input
+                    type='text'
+                    name='productName'
+                    placeholder='Filter by product name...'
+                    value={filters.productName}
+                    onChange={handleFilterChange}
+                    className='w-full pl-10 pr-4 py-2 border rounded-lg'
+                  />
+                </div>
+                <div className='relative'>
+                  <Search className='absolute left-3 top-2.5 text-gray-400' size={16} />
+                  <input
+                    type='text'
+                    name='productDomain'
+                    placeholder='Filter by product domain...'
+                    value={filters.productDomain}
+                    onChange={handleFilterChange}
+                    className='w-full pl-10 pr-4 py-2 border rounded-lg'
+                  />
+                </div>
+                <div className='relative'>
+                  <Search className='absolute left-3 top-2.5 text-gray-400' size={16} />
+                  <input
+                    type='text'
+                    name='productDescription'
+                    placeholder='Filter by product description...'
+                    value={filters.productDescription}
+                    onChange={handleFilterChange}
+                    className='w-full pl-10 pr-4 py-2 border rounded-lg'
+                  />
+                </div>
+              </div>
+
               <div className='space-y-4'>
-                {matches.length === 0 ? (
+                {filteredMatches.length === 0 ? (
                   <div className='text-center text-gray-500'>
                     <p>No matches found</p>
                   </div>
                 ) : (
-                  matches.map(match => (
+                  filteredMatches.map(match => (
                     <div key={match.product_id} className='p-4 border rounded-lg'>
                       <div className='flex justify-between items-center'>
                         <div>
                           <p className='font-medium'>Product: {match.product_name}</p>
-                          <p className='text-sm text-gray-500'>Suggested Official Catalog: {match.best_match.official_product.sku} - {match.best_match.official_product.name}</p>
+                          <p className='font-small'>Domain: {match.product_domain}</p>
+                          <p className='font-small'>Description: {match.product_description}</p>
+                          <p className='text-sm text-gray-500'>
+                            Suggested Official Catalog: {match.best_match.official_product.sku} - {match.best_match.official_product.name}
+                          </p>
                         </div>
                         <div className='text-right'>
                           <p className='text-lg font-bold text-green-600'>{match.best_match.confidence_score}%</p>
@@ -161,14 +234,13 @@ const AutoMatchingPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* ToastContainer to display the toasts */}
           <ToastContainer />
         </>
       ) : (
-          <div className="text-center mt-20">
-            <h1 className="text-2xl font-bold">Product Matching Not Allowed</h1>
-            <p className="text-gray-500">Please contact your administrator for further assistance.</p>
-          </div>
+        <div className="text-center mt-20">
+          <h1 className="text-2xl font-bold">Product Matching Not Allowed</h1>
+          <p className="text-gray-500">Please contact your administrator for further assistance.</p>
+        </div>
       )}
     </div>
   )
